@@ -6,20 +6,31 @@
     <title>POS - เครื่องคิดเงิน</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; margin: 0; padding: 0; }
+        h1, h2 { color: #333; }
         .main-container { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; padding: 20px; height: 100vh; box-sizing: border-box; }
+        
+        /* Product List Styles */
         .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; overflow-y: auto; padding-right: 10px; max-height: 85vh; }
         .product-card { background-color: #ffffff; border: 1px solid #ddd; border-radius: 8px; padding: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); text-align: center; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
         .product-card:hover { transform: translateY(-5px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         .product-card h3 { margin: 0 0 10px 0; font-size: 1em; }
         .product-card p { margin: 0; color: #007bff; font-weight: bold; }
+        
+        /* Cart Styles */
         .cart { background-color: #ffffff; border-radius: 8px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
-        h1, h2 { color: #333; }
         .cart-items { flex-grow: 1; overflow-y: auto; }
         .cart-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
         .cart-item-name { flex-grow: 1; }
         .cart-item-qty { margin: 0 10px; }
         .cart-item-price { min-width: 80px; text-align: right; }
         .cart-total { border-top: 2px dashed #ccc; padding-top: 15px; margin-top: 15px; text-align: right; font-size: 1.5em; font-weight: bold; }
+        
+        /* Action Buttons Styles (ส่วนที่เพิ่มเข้ามาใหม่) */
+        .cart-actions { margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .btn { padding: 15px; border: none; border-radius: 8px; font-size: 1em; font-weight: bold; cursor: pointer; transition: opacity 0.2s; }
+        .btn:hover { opacity: 0.8; }
+        .btn-danger { background-color: #dc3545; color: white; }
+        .btn-success { background-color: #28a745; color: white; }
     </style>
 </head>
 <body>
@@ -37,41 +48,50 @@
             <div class="cart-total" id="cart-total-container">
                 ยอดรวม: 0.00 บาท
             </div>
+            <div class="cart-actions">
+                <button class="btn btn-danger" id="clear-cart-button">ล้างตะกร้า</button>
+                <button class="btn btn-success" id="pay-button">คิดเงิน</button>
+            </div>
         </div>
     </div>
 
     <script>
         const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxGz441-Gn9ZbScGBZXbu-6O5j8jzvnt9PjI-yb5Vqb5i08NHM0F9syF4g7c0L0W57jiQ/exec';
         
-        // ตัวแปรสำหรับเก็บข้อมูลสินค้าทั้งหมดที่ fetch มา
         let allProducts = [];
-        // ตัวแปร "ตะกร้าสินค้า" ของเรา
         let cartItems = [];
 
-        // เมื่อหน้าเว็บโหลดเสร็จ ให้ไปดึงข้อมูลสินค้ามา
-        document.addEventListener('DOMContentLoaded', fetchProducts);
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchProducts();
+            
+            // *** ส่วนที่เพิ่มเข้ามาใหม่ ***
+            // เชื่อมปุ่มกับฟังก์ชัน
+            const clearCartButton = document.getElementById('clear-cart-button');
+            clearCartButton.addEventListener('click', () => {
+                // แสดงหน้าต่างยืนยันก่อนล้าง
+                if (confirm('คุณต้องการล้างตะกร้าสินค้าทั้งหมดใช่หรือไม่?')) {
+                    cartItems = []; // ทำให้ตะกร้าว่าง
+                    renderCart(); // วาดตะกร้าใหม่
+                }
+            });
 
-        function fetchProducts() {
+            const payButton = document.getElementById('pay-button');
+            payButton.addEventListener('click', handlePayment);
+        });
+
+        function fetchProducts() { /* ... โค้ดส่วนนี้เหมือนเดิมทุกประการ ... */
             const gridContainer = document.getElementById('product-grid-container');
             gridContainer.innerHTML = '<p>กำลังโหลดรายการสินค้า...</p>';
-
             fetch(WEB_APP_URL)
                 .then(response => response.json())
                 .then(products => {
-                    allProducts = products; // เก็บข้อมูลสินค้าทั้งหมดไว้
+                    allProducts = products;
                     gridContainer.innerHTML = ''; 
-                    
                     products.forEach(product => {
                         const card = document.createElement('div');
                         card.className = 'product-card';
                         card.innerHTML = `<h3>${product.ProductName}</h3><p>${product.Price.toFixed(2)} บาท</p>`;
-                        
-                        // *** จุดสำคัญอยู่ตรงนี้! ***
-                        // เพิ่ม Event Listener ให้การ์ดแต่ละใบ เมื่อถูกคลิก จะเรียกฟังก์ชัน addToCart
-                        card.addEventListener('click', () => {
-                            addToCart(product.ProductID);
-                        });
-                        
+                        card.addEventListener('click', () => { addToCart(product.ProductID); });
                         gridContainer.appendChild(card);
                     });
                 })
@@ -81,60 +101,65 @@
                 });
         }
 
-        // ฟังก์ชันสำหรับเพิ่มของลงตะกร้า
-        function addToCart(productId) {
-            // เช็คว่าสินค้าชิ้นนี้มีอยู่ในตะกร้าแล้วหรือยัง
+        function addToCart(productId) { /* ... โค้ดส่วนนี้เหมือนเดิมทุกประการ ... */
             const existingItem = cartItems.find(item => item.ProductID === productId);
-
             if (existingItem) {
-                // ถ้ามีแล้ว ให้บวกจำนวน (quantity) เพิ่มไป 1
                 existingItem.quantity++;
             } else {
-                // ถ้ายังไม่มี ให้ไปหาข้อมูลสินค้าจาก allProducts
                 const productToAdd = allProducts.find(p => p.ProductID === productId);
                 if (productToAdd) {
-                    // แล้วเพิ่มลงตะกร้า พร้อมกำหนด quantity เป็น 1
                     cartItems.push({ ...productToAdd, quantity: 1 });
                 }
             }
-            // "วาด" ตะกร้าใหม่ทุกครั้งที่มีการเปลี่ยนแปลง
             renderCart();
         }
 
-        // ฟังก์ชันสำหรับ "วาด" หรือแสดงผลตะกร้าสินค้า
-        function renderCart() {
+        function renderCart() { /* ... โค้ดส่วนนี้เหมือนเดิมทุกประการ ... */
             const cartContainer = document.getElementById('cart-items-container');
             const totalContainer = document.getElementById('cart-total-container');
             
-            // ถ้าตะกร้าว่าง ให้แสดงข้อความ
             if (cartItems.length === 0) {
                 cartContainer.innerHTML = '<p style="color: #888;">ยังไม่มีสินค้าในรายการ</p>';
                 totalContainer.innerHTML = 'ยอดรวม: 0.00 บาท';
                 return;
             }
-
-            // ถ้ามีของ ให้ล้างของเก่าทิ้งก่อน
             cartContainer.innerHTML = '';
             let total = 0;
-
-            // วนลูปสร้างรายการสินค้าในตะกร้าทีละชิ้น
             cartItems.forEach(item => {
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'cart-item';
-
                 const itemTotalPrice = item.Price * item.quantity;
                 total += itemTotalPrice;
-
-                itemDiv.innerHTML = `
-                    <span class="cart-item-name">${item.ProductName}</span>
-                    <span class="cart-item-qty">x${item.quantity}</span>
-                    <span class="cart-item-price">${itemTotalPrice.toFixed(2)}</span>
-                `;
+                itemDiv.innerHTML = `<span class="cart-item-name">${item.ProductName}</span><span class="cart-item-qty">x${item.quantity}</span><span class="cart-item-price">${itemTotalPrice.toFixed(2)}</span>`;
                 cartContainer.appendChild(itemDiv);
             });
-
-            // อัปเดตยอดรวม
             totalContainer.innerHTML = `ยอดรวม: ${total.toFixed(2)} บาท`;
+        }
+
+        // *** ฟังก์ชันใหม่สำหรับจัดการปุ่ม "คิดเงิน" ***
+        function handlePayment() {
+            if (cartItems.length === 0) {
+                alert('ตะกร้าสินค้าว่างเปล่า!');
+                return;
+            }
+
+            const totalAmount = cartItems.reduce((sum, item) => sum + item.Price * item.quantity, 0);
+            
+            // แสดงหน้าต่างยืนยัน
+            const confirmed = confirm(`ยอดรวมทั้งหมด ${totalAmount.toFixed(2)} บาท ยืนยันการขายใช่หรือไม่?`);
+
+            if (confirmed) {
+                // !! Placeholder !!
+                // ในขั้นตอนนี้ เราจะยังไม่ส่งข้อมูลไปหลังบ้าน
+                // เราจะแค่แสดงข้อความว่าสำเร็จ แล้วล้างตะกร้า
+                alert('บันทึกการขายสำเร็จ!');
+
+                // ล้างตะกร้าหลังจากขายสำเร็จ
+                cartItems = [];
+                renderCart();
+                
+                // ขั้นตอนต่อไป: เราจะเปลี่ยนโค้ดตรงนี้ให้ส่งข้อมูล `cartItems` ไปที่ Google Apps Script
+            }
         }
     </script>
 </body>
