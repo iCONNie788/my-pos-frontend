@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ทดสอบดึงข้อมูล POS</title>
+    <style>
+        body { font-family: sans-serif; background-color: #f4f4f9; color: #333; padding: 20px; }
+        .product-item { background-color: #ffffff; border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1, h2 { color: #555; }
+    </style>
+</head>
+<body>
+
+    <h1>รายการสินค้าจาก Google Sheets</h1>
+    <div id="products-container"><p>กำลังโหลดข้อมูลสินค้า กรุณารอสักครู่...</p></div>
+
+    <script>
+        // ★★★★★ สำคัญมาก! เปลี่ยนให้เป็น URL ของคุณนะคะ ★★★★★
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxGz441-Gn9ZbScGBZXbu-6O5j8jzvnt9PjI-yb5Vqb5i08NHM0F9syF4g7c0L0W57jiQ/exec';
+
+        fetch(WEB_APP_URL)
+            .then(response => response.json())
+            .then(data => {
+                const container = document.getElementById('products-container');
+                container.innerHTML = '';
+                data.forEach(product => {
+                    const productDiv = document.createElement('div');
+                    productDiv.className = 'product-item';
+                    productDiv.innerHTML = `
+                        <h2>${product.ProductName} (${product.ProductID})</h2>
+                        <p>ราคา: ${product.Price} บาท</p>
+                        <p>คงเหลือ: ${product.Stock} ${product.Unit}</p>
+                    `;
+                    container.appendChild(productDiv);
+                });
+            })
+            .catch(error => {
+                console.error('เกิดข้อผิดพลาดในการดึงข้อมูล:', error);
+                const container = document.getElementById('products-container');
+                container.innerHTML = '<p style="color: red;">เกิดข้อผิดพลาดในการโหลดข้อมูลสินค้า</p>';
+            });
+    </script>
+
+</body>
+</html>
