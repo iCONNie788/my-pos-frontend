@@ -5,82 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>POS - เครื่องคิดเงิน</title>
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f0f2f5;
-            margin: 0;
-            padding: 0;
-        }
-        .main-container {
-            display: grid;
-            grid-template-columns: 2fr 1fr; /* แบ่งหน้าจอเป็น 2 ส่วน (ซ้าย:ขวา = 2:1) */
-            gap: 20px;
-            padding: 20px;
-            height: 100vh;
-            box-sizing: border-box;
-        }
-        .product-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 15px;
-            overflow-y: auto; /* ถ้าสินค้าเยอะจะมี scrollbar */
-            padding-right: 10px;
-        }
-        .product-card {
-            background-color: #ffffff;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 15px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            text-align: center;
-            cursor: pointer; /* ทำให้เมาส์เป็นรูปมือเหมือนกดปุ่มได้ */
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .product-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-        .product-card h3 {
-            margin: 0 0 10px 0;
-            font-size: 1em;
-        }
-        .product-card p {
-            margin: 0;
-            color: #007bff;
-            font-weight: bold;
-        }
-        .cart {
-            background-color: #ffffff;
-            border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            display: flex;
-            flex-direction: column;
-        }
-        .cart-items {
-            flex-grow: 1; /* ให้ส่วนรายการสินค้ายืดเต็มที่ */
-            overflow-y: auto;
-        }
-        .cart-total {
-            border-top: 2px dashed #ccc;
-            padding-top: 15px;
-            margin-top: 15px;
-            text-align: right;
-            font-size: 1.5em;
-            font-weight: bold;
-        }
-        h1, h2 {
-            color: #333;
-        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; margin: 0; padding: 0; }
+        .main-container { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; padding: 20px; height: 100vh; box-sizing: border-box; }
+        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; overflow-y: auto; padding-right: 10px; max-height: 85vh; }
+        .product-card { background-color: #ffffff; border: 1px solid #ddd; border-radius: 8px; padding: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); text-align: center; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
+        .product-card:hover { transform: translateY(-5px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .product-card h3 { margin: 0 0 10px 0; font-size: 1em; }
+        .product-card p { margin: 0; color: #007bff; font-weight: bold; }
+        .cart { background-color: #ffffff; border-radius: 8px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
+        h1, h2 { color: #333; }
+        .cart-items { flex-grow: 1; overflow-y: auto; }
+        .cart-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
+        .cart-item-name { flex-grow: 1; }
+        .cart-item-qty { margin: 0 10px; }
+        .cart-item-price { min-width: 80px; text-align: right; }
+        .cart-total { border-top: 2px dashed #ccc; padding-top: 15px; margin-top: 15px; text-align: right; font-size: 1.5em; font-weight: bold; }
     </style>
 </head>
 <body>
-
     <div class="main-container">
         <div class="product-selection">
             <h1>เลือกสินค้า</h1>
-            <div class="product-grid" id="product-grid-container">
-                </div>
+            <div class="product-grid" id="product-grid-container"></div>
         </div>
 
         <div class="cart">
@@ -95,11 +41,15 @@
     </div>
 
     <script>
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxGz441-Gn9ZbScGBZXbu-6O5j8jzvnt9PjI-yb5Vqb5i08NHM0F9syF4g7c0L0W57jiQ/exec'; // ★★★★★ อย่าลืม! ใส่ URL ของคุณตรงนี้นะคะ ★★★★★
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxGz441-Gn9ZbScGBZXbu-6O5j8jzvnt9PjI-yb5Vqb5i08NHM0F9syF4g7c0L0W57jiQ/exec';
+        
+        // ตัวแปรสำหรับเก็บข้อมูลสินค้าทั้งหมดที่ fetch มา
+        let allProducts = [];
+        // ตัวแปร "ตะกร้าสินค้า" ของเรา
+        let cartItems = [];
 
-        document.addEventListener('DOMContentLoaded', () => {
-            fetchProducts();
-        });
+        // เมื่อหน้าเว็บโหลดเสร็จ ให้ไปดึงข้อมูลสินค้ามา
+        document.addEventListener('DOMContentLoaded', fetchProducts);
 
         function fetchProducts() {
             const gridContainer = document.getElementById('product-grid-container');
@@ -108,23 +58,20 @@
             fetch(WEB_APP_URL)
                 .then(response => response.json())
                 .then(products => {
-                    gridContainer.innerHTML = ''; // ล้างข้อความ "กำลังโหลด..."
+                    allProducts = products; // เก็บข้อมูลสินค้าทั้งหมดไว้
+                    gridContainer.innerHTML = ''; 
                     
                     products.forEach(product => {
-                        // สร้างการ์ดสินค้าขึ้นมา
                         const card = document.createElement('div');
                         card.className = 'product-card';
+                        card.innerHTML = `<h3>${product.ProductName}</h3><p>${product.Price.toFixed(2)} บาท</p>`;
                         
-                        // ใส่ข้อมูลสินค้าลงในการ์ด
-                        card.innerHTML = `
-                            <h3>${product.ProductName}</h3>
-                            <p>${product.Price.toFixed(2)} บาท</p>
-                        `;
-
-                        // TODO: ขั้นตอนต่อไปคือการใส่ Event Listener ตรงนี้
-                        // เพื่อให้เวลากดแล้วไปเพิ่มของในตะกร้า
+                        // *** จุดสำคัญอยู่ตรงนี้! ***
+                        // เพิ่ม Event Listener ให้การ์ดแต่ละใบ เมื่อถูกคลิก จะเรียกฟังก์ชัน addToCart
+                        card.addEventListener('click', () => {
+                            addToCart(product.ProductID);
+                        });
                         
-                        // นำการ์ดไปแสดงผล
                         gridContainer.appendChild(card);
                     });
                 })
@@ -133,7 +80,62 @@
                     gridContainer.innerHTML = '<p style="color: red;">โหลดข้อมูลสินค้าไม่สำเร็จ</p>';
                 });
         }
-    </script>
 
+        // ฟังก์ชันสำหรับเพิ่มของลงตะกร้า
+        function addToCart(productId) {
+            // เช็คว่าสินค้าชิ้นนี้มีอยู่ในตะกร้าแล้วหรือยัง
+            const existingItem = cartItems.find(item => item.ProductID === productId);
+
+            if (existingItem) {
+                // ถ้ามีแล้ว ให้บวกจำนวน (quantity) เพิ่มไป 1
+                existingItem.quantity++;
+            } else {
+                // ถ้ายังไม่มี ให้ไปหาข้อมูลสินค้าจาก allProducts
+                const productToAdd = allProducts.find(p => p.ProductID === productId);
+                if (productToAdd) {
+                    // แล้วเพิ่มลงตะกร้า พร้อมกำหนด quantity เป็น 1
+                    cartItems.push({ ...productToAdd, quantity: 1 });
+                }
+            }
+            // "วาด" ตะกร้าใหม่ทุกครั้งที่มีการเปลี่ยนแปลง
+            renderCart();
+        }
+
+        // ฟังก์ชันสำหรับ "วาด" หรือแสดงผลตะกร้าสินค้า
+        function renderCart() {
+            const cartContainer = document.getElementById('cart-items-container');
+            const totalContainer = document.getElementById('cart-total-container');
+            
+            // ถ้าตะกร้าว่าง ให้แสดงข้อความ
+            if (cartItems.length === 0) {
+                cartContainer.innerHTML = '<p style="color: #888;">ยังไม่มีสินค้าในรายการ</p>';
+                totalContainer.innerHTML = 'ยอดรวม: 0.00 บาท';
+                return;
+            }
+
+            // ถ้ามีของ ให้ล้างของเก่าทิ้งก่อน
+            cartContainer.innerHTML = '';
+            let total = 0;
+
+            // วนลูปสร้างรายการสินค้าในตะกร้าทีละชิ้น
+            cartItems.forEach(item => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'cart-item';
+
+                const itemTotalPrice = item.Price * item.quantity;
+                total += itemTotalPrice;
+
+                itemDiv.innerHTML = `
+                    <span class="cart-item-name">${item.ProductName}</span>
+                    <span class="cart-item-qty">x${item.quantity}</span>
+                    <span class="cart-item-price">${itemTotalPrice.toFixed(2)}</span>
+                `;
+                cartContainer.appendChild(itemDiv);
+            });
+
+            // อัปเดตยอดรวม
+            totalContainer.innerHTML = `ยอดรวม: ${total.toFixed(2)} บาท`;
+        }
+    </script>
 </body>
 </html>
