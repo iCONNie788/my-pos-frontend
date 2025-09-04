@@ -3,43 +3,136 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ทดสอบดึงข้อมูล POS</title>
+    <title>POS - เครื่องคิดเงิน</title>
     <style>
-        body { font-family: sans-serif; background-color: #f4f4f9; color: #333; padding: 20px; }
-        .product-item { background-color: #ffffff; border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        h1, h2 { color: #555; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 0;
+        }
+        .main-container {
+            display: grid;
+            grid-template-columns: 2fr 1fr; /* แบ่งหน้าจอเป็น 2 ส่วน (ซ้าย:ขวา = 2:1) */
+            gap: 20px;
+            padding: 20px;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            overflow-y: auto; /* ถ้าสินค้าเยอะจะมี scrollbar */
+            padding-right: 10px;
+        }
+        .product-card {
+            background-color: #ffffff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            text-align: center;
+            cursor: pointer; /* ทำให้เมาส์เป็นรูปมือเหมือนกดปุ่มได้ */
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .product-card h3 {
+            margin: 0 0 10px 0;
+            font-size: 1em;
+        }
+        .product-card p {
+            margin: 0;
+            color: #007bff;
+            font-weight: bold;
+        }
+        .cart {
+            background-color: #ffffff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+        }
+        .cart-items {
+            flex-grow: 1; /* ให้ส่วนรายการสินค้ายืดเต็มที่ */
+            overflow-y: auto;
+        }
+        .cart-total {
+            border-top: 2px dashed #ccc;
+            padding-top: 15px;
+            margin-top: 15px;
+            text-align: right;
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+        h1, h2 {
+            color: #333;
+        }
     </style>
 </head>
 <body>
 
-    <h1>รายการสินค้าจาก Google Sheets</h1>
-    <div id="products-container"><p>กำลังโหลดข้อมูลสินค้า กรุณารอสักครู่...</p></div>
+    <div class="main-container">
+        <div class="product-selection">
+            <h1>เลือกสินค้า</h1>
+            <div class="product-grid" id="product-grid-container">
+                </div>
+        </div>
+
+        <div class="cart">
+            <h2>รายการสั่งซื้อ</h2>
+            <div class="cart-items" id="cart-items-container">
+                <p style="color: #888;">ยังไม่มีสินค้าในรายการ</p>
+            </div>
+            <div class="cart-total" id="cart-total-container">
+                ยอดรวม: 0.00 บาท
+            </div>
+        </div>
+    </div>
 
     <script>
-        // ★★★★★ สำคัญมาก! เปลี่ยนให้เป็น URL ของคุณนะคะ ★★★★★
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxGz441-Gn9ZbScGBZXbu-6O5j8jzvnt9PjI-yb5Vqb5i08NHM0F9syF4g7c0L0W57jiQ/exec';
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxGz441-Gn9ZbScGBZXbu-6O5j8jzvnt9PjI-yb5Vqb5i08NHM0F9syF4g7c0L0W57jiQ/exec'; // ★★★★★ อย่าลืม! ใส่ URL ของคุณตรงนี้นะคะ ★★★★★
 
-        fetch(WEB_APP_URL)
-            .then(response => response.json())
-            .then(data => {
-                const container = document.getElementById('products-container');
-                container.innerHTML = '';
-                data.forEach(product => {
-                    const productDiv = document.createElement('div');
-                    productDiv.className = 'product-item';
-                    productDiv.innerHTML = `
-                        <h2>${product.ProductName} (${product.ProductID})</h2>
-                        <p>ราคา: ${product.Price} บาท</p>
-                        <p>คงเหลือ: ${product.Stock} ${product.Unit}</p>
-                    `;
-                    container.appendChild(productDiv);
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchProducts();
+        });
+
+        function fetchProducts() {
+            const gridContainer = document.getElementById('product-grid-container');
+            gridContainer.innerHTML = '<p>กำลังโหลดรายการสินค้า...</p>';
+
+            fetch(WEB_APP_URL)
+                .then(response => response.json())
+                .then(products => {
+                    gridContainer.innerHTML = ''; // ล้างข้อความ "กำลังโหลด..."
+                    
+                    products.forEach(product => {
+                        // สร้างการ์ดสินค้าขึ้นมา
+                        const card = document.createElement('div');
+                        card.className = 'product-card';
+                        
+                        // ใส่ข้อมูลสินค้าลงในการ์ด
+                        card.innerHTML = `
+                            <h3>${product.ProductName}</h3>
+                            <p>${product.Price.toFixed(2)} บาท</p>
+                        `;
+
+                        // TODO: ขั้นตอนต่อไปคือการใส่ Event Listener ตรงนี้
+                        // เพื่อให้เวลากดแล้วไปเพิ่มของในตะกร้า
+                        
+                        // นำการ์ดไปแสดงผล
+                        gridContainer.appendChild(card);
+                    });
+                })
+                .catch(error => {
+                    console.error('เกิดข้อผิดพลาด:', error);
+                    gridContainer.innerHTML = '<p style="color: red;">โหลดข้อมูลสินค้าไม่สำเร็จ</p>';
                 });
-            })
-            .catch(error => {
-                console.error('เกิดข้อผิดพลาดในการดึงข้อมูล:', error);
-                const container = document.getElementById('products-container');
-                container.innerHTML = '<p style="color: red;">เกิดข้อผิดพลาดในการโหลดข้อมูลสินค้า</p>';
-            });
+        }
     </script>
 
 </body>
